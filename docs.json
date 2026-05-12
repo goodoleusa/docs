@@ -48,6 +48,16 @@
               "ai-tools/claude-code",
               "ai-tools/windsurf"
             ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deploy/overview",
+              "deploy/vps-quickstart",
+              "deploy/mcp-server",
+              "deploy/tokens",
+              "deploy/chat-mvp"
+            ]
           }
         ]
       },

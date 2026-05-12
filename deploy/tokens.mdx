@@ -1,0 +1,71 @@
+---
+title: "Manage MCP tokens"
+description: "Create, list, revoke, and reset bearer tokens for the faerie2 MCP server"
+icon: "key"
+---
+
+The `manage-tokens.py` CLI controls who can call the MCP server and which tier they get. Tokens are stored in `deploy/mcp-server/data/tokens.json` and validated by the server on every request.
+
+## When to use it
+
+- Issue a new token when you onboard a user or agent.
+- Promote a user from free to pro by issuing a new token and revoking the old one.
+- Revoke a leaked token immediately.
+- Reset the daily counter on a free token if a user hits the cap unexpectedly.
+
+## Create a token
+
+Run from the repository root:
+
+```bash
+python3 deploy/scripts/manage-tokens.py create \
+  --user user@example.com \
+  --tier free
+```
+
+Tiers:
+
+- `free` — read-only tools, 50 requests per day.
+- `pro` — all tools, unlimited.
+
+The command prints a UUID token. Save it; it is not recoverable later.
+
+## List tokens
+
+```bash
+python3 deploy/scripts/manage-tokens.py list
+```
+
+The output shows the truncated token, user, tier, requests used today, and creation date.
+
+## Revoke a token
+
+```bash
+python3 deploy/scripts/manage-tokens.py revoke --token <full-token>
+```
+
+The token is removed from `tokens.json` immediately. The next MCP request using that token returns an authorization error.
+
+## Reset the daily counter
+
+If a free-tier user hits the 50 request cap, you can reset their counter without issuing a new token:
+
+```bash
+python3 deploy/scripts/manage-tokens.py reset --token <full-token>
+```
+
+## Where tokens are stored
+
+Tokens live in `deploy/mcp-server/data/tokens.json` as a JSON object keyed by the raw token. Each record holds:
+
+```json
+{
+  "user_id": "user@example.com",
+  "tier": "free",
+  "created_at": "2026-05-12T00:00:00+00:00",
+  "requests_today": 0,
+  "last_reset": "2026-05-12"
+}
+```
+
+Back this file up before any major change. If you mount the `mcp-server` directory as a Docker volume, the tokens survive container rebuilds.

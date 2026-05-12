@@ -1,0 +1,92 @@
+---
+title: "MCP server"
+description: "OpenHands-native MCP server exposing faerie2 orchestration tools over HTTP"
+icon: "plug"
+---
+
+The faerie2 MCP server is an OpenHands SDK-native service that exposes orchestration tools over the Model Context Protocol. It uses the streamable HTTP transport from `FastMCP` and validates a bearer token on every request.
+
+## When to use it
+
+Connect to the MCP server when you want to:
+
+- Inspect or mutate the faerie2 sprint queue from an OpenHands agent.
+- Drive faerie2 from an external client (Claude, Cursor, a chat UI).
+- Share orchestration tools across multiple agents while enforcing per-token rate limits.
+
+## Connection details
+
+| Setting | Default | Override |
+|---|---|---|
+| Host | `0.0.0.0` | `FAERIE_MCP_HOST` |
+| Port | `8080` | `FAERIE_MCP_PORT` |
+| Endpoint | `/mcp` | — |
+| Transport | `streamable-http` | — |
+| Auth | `Authorization: Bearer <token>` | — |
+
+The server reads its sprint queue from `FAERIE_QUEUE_PATH` (defaults to `~/.openhands/state/sprint-queue.json`) and shells out to `FAERIE_QUEUE_OPS` and `FAERIE_DECIDE_SCRIPT` for write operations.
+
+## Tools
+
+Six tools are registered. Each tool declares a tier; the `free` tier is read-only with a 50 requests/day cap, and the `pro` tier is unlimited and includes the write tools.
+
+| Tool | Tier | Description |
+|---|---|---|
+| `faerie_status` | free | Returns queue counts and health metadata. |
+| `faerie_queue_list` | free | Lists pending tasks filtered by project or priority. |
+| `faerie_dashboard` | free | Returns structured summary data for dashboards. |
+| `faerie_run` | pro | Atomically claims the next task (or a specific task by id). |
+| `faerie_queue_add` | pro | Adds a new task to the queue. |
+| `faerie_decide` | pro | Applies short-form answers to pending decisions. |
+
+### faerie_queue_add parameters
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `goal` | string | yes | What needs to be done. |
+| `priority` | `HIGH` \| `MED` \| `LOW` | no | Defaults to `MED`. |
+| `project` | string | no | Defaults to `general`. |
+| `agent` | string | no | Preferred agent type. |
+
+### faerie_decide format
+
+Pass a short-form answer string such as `"1y 2n 3q"`. The letters mean:
+
+- `y` — approve
+- `n` — reject
+- `q` — queue for later
+- `s` — skip
+
+## Connect from OpenHands
+
+Use the SDK-native client wrapper to register the tools with any `openhands.sdk.Agent`:
+
+```python
+from deploy.mcp_server.oh_client import FaerieMCPClient
+
+client = FaerieMCPClient(
+    server_url="http://localhost:8080/mcp",
+    token="<your-bearer-token>",
+)
+tools = await client.connect()
+```
+
+`tools` returns a list of `MCPToolDefinition` instances ready to attach to an agent.
+
+## Connect from any MCP client
+
+Any client that speaks streamable HTTP can connect:
+
+```bash
+curl -N \
+  -H "Authorization: Bearer $FAERIE_MCP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"method":"tools/list"}' \
+  http://localhost:8080/mcp
+```
+
+## Rate limits
+
+Free-tier tokens are capped at 50 requests per day. Counters reset at midnight UTC. Reset a token manually with the [token CLI](/deploy/tokens).
+
+Requests over the cap return an authorization error and do not consume a tool call.

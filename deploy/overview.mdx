@@ -1,0 +1,51 @@
+---
+title: "Deployment overview"
+description: "Run faerie2 with OpenHands SDK and the MCP server on a VPS or ZimaBoard"
+icon: "server"
+---
+
+The `deploy/` package contains everything you need to run faerie2 in production. It bundles OpenHands, the faerie2 MCP server, and an optional nginx reverse proxy into a single Docker Compose stack.
+
+## What you get
+
+- **OpenHands** runtime on port `3000` for agent execution.
+- **MCP server** on port `8080` exposing six faerie2 orchestration tools.
+- **Nginx + Certbot** on ports `80`/`443` for TLS and reverse proxying (VPS only).
+- **Chat MVP** UI as an optional front-end.
+
+## Choose a target
+
+| Target | When to use | Compose file |
+|---|---|---|
+| VPS | Public internet, custom domain, TLS | `deploy/docker-compose.prod.yml` |
+| ZimaBoard | LAN-only, ARM64, no nginx | `deploy/zima/docker-compose.yml` |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                VPS / ZimaBoard                   │
+│                                                  │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐    │
+│  │ OpenHands│◄──►│ MCP Srv  │◄──►│  Nginx   │    │
+│  │  :3000   │    │  :8080   │    │ :80/:443 │    │
+│  └──────────┘    └──────────┘    └──────────┘    │
+└─────────────────────────────────────────────────┘
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart a VPS" icon="rocket" href="/deploy/vps-quickstart">
+    Provision an Ubuntu droplet and bring the stack online in about ten minutes.
+  </Card>
+  <Card title="MCP server reference" icon="plug" href="/deploy/mcp-server">
+    Tools, tiers, authentication, and the streamable HTTP transport.
+  </Card>
+  <Card title="Manage tokens" icon="key" href="/deploy/tokens">
+    Create, list, revoke, and reset MCP bearer tokens.
+  </Card>
+  <Card title="Chat MVP" icon="comments" href="/deploy/chat-mvp">
+    Deploy the chat UI that talks to your MCP server.
+  </Card>
+</CardGroup>

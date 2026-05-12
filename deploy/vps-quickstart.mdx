@@ -1,0 +1,112 @@
+---
+title: "VPS quickstart"
+description: "Provision an Ubuntu VPS and run the full faerie2 stack in about ten minutes"
+icon: "rocket"
+---
+
+This guide installs OpenHands, the faerie2 MCP server, and nginx on a fresh Ubuntu 24.04 VPS. The installer handles Docker, the firewall, Python, and the OpenHands SDK for you.
+
+## Prerequisites
+
+- An Ubuntu 24.04 VPS with at least 1 vCPU and 1 GB RAM.
+- Root SSH access.
+- An [OpenRouter](https://openrouter.ai) API key (or another LLM provider compatible with OpenHands).
+- A domain name pointed at the VPS if you want HTTPS.
+
+## Step 1: Run the installer
+
+SSH into the droplet and run the one-shot installer:
+
+```bash
+ssh root@<YOUR_VPS_IP>
+curl -fsSL https://raw.githubusercontent.com/goodoleusa/faerie2/main/deploy/scripts/install.sh | bash
+```
+
+The installer:
+
+- Updates the system and installs Docker, Python, nginx, certbot, UFW, and fail2ban.
+- Opens ports `22`, `80`, and `443` in the firewall.
+- Creates a Python virtual environment at `/opt/faerie2-venv` with `openhands-sdk` and MCP dependencies.
+- Clones the repository into `/opt/faerie2`.
+- Creates a service user called `faerie2`.
+
+## Step 2: Configure environment
+
+Copy the template and fill in your secrets:
+
+```bash
+cd /opt/faerie2
+cp deploy/config/.env.example .env
+nano .env
+```
+
+At minimum, set these values:
+
+```bash
+OPENROUTER_API_KEY=sk-or-v1-...
+OPENHANDS_MODEL=openrouter/qwen/qwen3-next-80b-a3b-instruct:free
+FAERIE_MCP_TOKEN=<generated-in-step-3>
+DOMAIN=your-domain.com
+ADMIN_EMAIL=admin@your-domain.com
+```
+
+## Step 3: Create an MCP token
+
+Create at least one token before starting the stack. The `pro` tier unlocks write tools:
+
+```bash
+python3 deploy/scripts/manage-tokens.py create \
+  --user admin@your-domain.com \
+  --tier pro
+```
+
+Copy the printed token into `FAERIE_MCP_TOKEN` in `.env`. See [Manage tokens](/deploy/tokens) for the full CLI reference.
+
+## Step 4: Start the stack
+
+Bring everything up with Docker Compose:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml up -d
+```
+
+This starts OpenHands, the MCP server, nginx, and certbot. The first run requests a Let's Encrypt certificate for the configured domain.
+
+## Step 5: Verify
+
+Check that all containers are healthy:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml ps
+```
+
+Then call the MCP server directly:
+
+```bash
+curl -H "Authorization: Bearer $FAERIE_MCP_TOKEN" \
+  http://localhost:8080/mcp
+```
+
+Open `https://your-domain.com` to reach OpenHands.
+
+## Updating
+
+Pull the latest code and rebuild without downtime:
+
+```bash
+cd /opt/faerie2
+git pull origin main
+docker compose -f deploy/docker-compose.prod.yml up -d --build
+```
+
+## ZimaBoard alternative
+
+For a LAN-only ARM64 board, skip nginx and certbot:
+
+```bash
+cd /opt/faerie2
+cp deploy/config/.env.example .env
+docker compose -f deploy/zima/docker-compose.yml up -d
+```
+
+The ZimaBoard stack binds OpenHands and the MCP server directly on the local network.

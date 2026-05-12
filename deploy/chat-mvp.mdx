@@ -1,0 +1,77 @@
+---
+title: "Chat MVP"
+description: "Deploy the neo-brutalist chat UI that talks to your faerie2 MCP server"
+icon: "comments"
+---
+
+The chat MVP is a standalone React UI that connects to a running MCP server. Use it when you want a browser front end for faerie2 without running the full OpenHands stack.
+
+## What you get
+
+- Chat UI on port `3000`.
+- Bearer-token login screen that authenticates against the MCP server.
+- Docker Compose deployment with auto-restart on reboot.
+
+## Prerequisites
+
+- An Ubuntu VPS or any Docker host on the same network as your MCP server.
+- A running MCP server (see [VPS quickstart](/deploy/vps-quickstart)).
+- A pro-tier MCP token (see [Manage tokens](/deploy/tokens)).
+
+## Step 1: Configure
+
+From the repository root:
+
+```bash
+cd deploy/chat-mvp
+cp .env.example .env
+nano .env
+```
+
+Set the MCP server URL:
+
+```bash
+MCP_SERVER_URL=http://localhost:8080
+NODE_ENV=production
+```
+
+If the MCP server runs on a different host, replace `localhost` with its address.
+
+## Step 2: Start
+
+```bash
+docker compose up -d
+```
+
+The container starts in detached mode and restarts automatically on boot.
+
+## Step 3: Verify
+
+```bash
+docker ps
+```
+
+You should see `mcp-chat-ui` listening on `0.0.0.0:3000`. Open `http://<your-host>:3000` and paste your pro-tier bearer token to log in.
+
+## Updating
+
+Pull the latest code and rebuild:
+
+```bash
+cd /opt/faerie2/deploy/chat-mvp
+git pull origin main
+docker compose up -d --build
+```
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Container exits immediately | Run `docker compose logs chat-ui` and check for missing `.env` values. |
+| Port `3000` already in use | Run `ss -tlnp \| grep 3000` to find the conflicting process. |
+| Login fails with `401` | Confirm the token is pro tier and that `MCP_SERVER_URL` is reachable from the container. |
+| `docker: permission denied` | Log out and back in so your user picks up the `docker` group. |
+
+## Run it alongside the full stack
+
+If you already run `deploy/docker-compose.prod.yml`, the chat UI can sit on the same host. Point `MCP_SERVER_URL` at the internal MCP container hostname (typically `http://mcp-server:8080`) and bring the UI up with its own compose file.
