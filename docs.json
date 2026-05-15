@@ -39,6 +39,14 @@
             ]
           },
           {
+            "group": "Faerie",
+            "pages": [
+              "faerie/substrate",
+              "faerie/spawn",
+              "faerie/route"
+            ]
+          },
+          {
             "group": "Agent ready",
             "pages": [
               "agent-ready/prompt",
