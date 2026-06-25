@@ -1,0 +1,130 @@
+---
+title: "/substrate: unified lifecycle command for faerie agents"
+description: "Unified lifecycle command for spawning, evolving, crystallizing, steering, and measuring faerie agent teams from a single command interface."
+icon: "layer-group"
+---
+
+## Overview
+
+`/substrate` is the unified lifecycle command for faerie. Instead of remembering nine separate commands, you select an **operation** and `/substrate` routes the work to the right subsystem while sharing common infrastructure across all of them.
+
+Use `/substrate` when you want to:
+
+- Spawn an agent team for a new mission.
+- Monitor live fitness and emit steering signals.
+- Crystallize verified findings into long-term memory.
+- Compose reusable spawn bundles.
+- Generate dashboards and metrics reports.
+- Inject a top-level instruction to correct metric drift.
+
+Every operation shares the same chain-of-custody (COC) tracking, B2 streaming, metrics integration, and equilibrium checks, so you get consistent forensics no matter which lifecycle phase you are working in.
+
+## Operations
+
+Pick the operation that matches your task. Each operation maps to a single subsystem but inherits the shared infrastructure.
+
+| Operation | When to use it | Default model |
+| --- | --- | --- |
+| `faerie` | Spawn agents using the archetype roster. | Haiku |
+| `spawn` | Programmatic agent spawning with policy evaluation. | Haiku (Sonnet for complex logic) |
+| `evolve` | Watch in-flight metrics and emit steering signals. | Haiku |
+| `crystallize` | Consolidate verified findings into anchors. | Sonnet |
+| `bundle` | Compose reusable spawn bundles for caching. | Haiku (Sonnet for optimization) |
+| `dashboard` | Generate a human-readable metrics dashboard. | Haiku |
+| `metrics` | Compute M1–M11, FFMx, and per-agent efficiency. | No LLM |
+| `eval` | Run the dev-eval harness against target agents. | Target agent models |
+| `inject` | Push a top-level instruction to all agents. | No LLM |
+
+## Common flags
+
+These flags work across every operation:
+
+- `--operation` — Required. One of the operations above.
+- `--dry-run` — Plan the operation without writing artifacts.
+- `--equilibrium-check` — Run pre- and post-operation drift checks.
+- `--target` — Scope the operation to a specific agent or bundle.
+
+## Examples
+
+### Spawn a team for a new mission
+
+Use `--operation faerie` to spawn agents from the archetype roster against a mission graph node.
+
+```bash
+/substrate --operation faerie \
+  --spawn-config agents/spawn-configs/auth-flow.json \
+  --model haiku \
+  --target-count 3 \
+  --cost-budget 5000
+```
+
+### Watch live fitness during a session
+
+Run `evolve` in the background to detect drift and emit steering signals while a team is working.
+
+```bash
+/substrate --operation evolve \
+  --watch-interval 30s \
+  --mutation-family agent-variant \
+  --emit-steering \
+  --readiness-check
+```
+
+If `M8_bearing_alignment` drifts more than 5%, `evolve` emits a steering signal automatically. If `M1_memory_recall` drops, it injects a top-level instruction to increase evidence grounding.
+
+### Crystallize verified findings
+
+After a session, lock proven mutations into long-term memory. Crystallize requires evidence: each candidate must cite at least two manifest paths and show a verified metric movement of more than 2%.
+
+```bash
+/substrate --operation crystallize \
+  --dry-run \
+  --evaluate \
+  --verify-only
+```
+
+### Generate a dashboard
+
+```bash
+/substrate --operation dashboard \
+  --generate \
+  --format md \
+  --include-metrics "M1-M11,FFMx,emergence"
+```
+
+### Inject an instruction without rebuilding agents
+
+When a metric degrades mid-session, use `inject` to push a corrective instruction that the next spawn will read from config.
+
+```bash
+/substrate --operation inject \
+  --instruction "Increase evidence grounding in manifests" \
+  --rationale "M5_evidence_grounding degraded 8% (0.85 → 0.78)" \
+  --target all-agents \
+  --duration 48h \
+  --metrics-watch "M5"
+```
+
+The instruction auto-expires after the duration you set or when the watched metric recovers.
+
+## Shared infrastructure
+
+Every `/substrate` invocation writes to two destinations:
+
+1. **Forensic path** — structured COC-tracked artifacts under `forensics/`.
+2. **Vault path** — human-readable narrative in your daily folder.
+
+This dual-write ensures every operation produces both machine-verifiable evidence and a readable session record.
+
+## Equilibrium model
+
+`/substrate` is designed to keep the system in equilibrium. Each operation runs a pre-flight check, performs its work, then runs a post-flight check. If metrics show drift, the operation can chain into `inject` automatically to correct the system without manual intervention.
+
+## Suggested rollout
+
+If you are adopting `/substrate` for the first time, run operations in this order:
+
+1. `crystallize --evaluate --verify-only` to lock proven methods.
+2. `faerie` to spawn a team against your next mission.
+3. `evolve --watch-interval 30s --run-in-background` to monitor for 24 hours.
+4. `metrics --compute` to confirm the run produced healthy numbers.

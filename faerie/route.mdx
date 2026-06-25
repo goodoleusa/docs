@@ -1,0 +1,110 @@
+---
+title: "Route faerie agents to OpenRouter models by tier"
+description: "Select OpenRouter models across the main, large-context, and frontier tiers when spawning faerie agents for routine, document, or reasoning tasks."
+icon: "route"
+---
+
+## Overview
+
+`faerie route` is the model routing tool. It picks an OpenRouter model for a spawned agent based on the agent's archetype, the tier you need, and optional task requirements. Use it when the default archetype-to-model mapping is not the right fit. Examples include a documentation pass that needs a 256K-context model, or a reasoning-heavy step that warrants a frontier model.
+
+Use `route` when you want to:
+
+- See which models are available in a tier.
+- Pick a specific model by archetype.
+- Get a recommendation based on task requirements.
+
+## Tiers
+
+`route` exposes three rosters.
+
+| Tier | When to use it | Examples |
+| --- | --- | --- |
+| `main` | Default for most spawns. Archetype-mapped free models tuned for each role. | `qwen3-next-80b`, `mistral-7b`, `qwen3-coder-30b` |
+| `large_context` | Document-heavy work that needs 256K–2M context. | `moonshotai/kimi-k2`, `google/gemini-2.5-pro`, `cohere/command-a` |
+| `frontier` | Cutting-edge reasoning. May have rate limits. | `openai/o3`, `openai/o4-mini`, `anthropic/claude-3.7-sonnet` |
+
+See [Spawning agent teams](/faerie/spawn) for the full main-tier archetype roster.
+
+## Operations
+
+`route` supports three operations.
+
+### `list` — list models in a tier
+
+Returns every model in the requested tier along with its OpenRouter URL.
+
+```bash
+faerie route --operation list --tier large_context
+```
+
+Use `list` when you want to inspect what is available before selecting.
+
+### `select` — pick a model by archetype
+
+Returns the model URL for a given archetype within a tier. If the archetype is not present in the tier's roster, `route` falls back to a sensible default.
+
+```bash
+faerie route --operation select --archetype NAVIGATOR --tier main
+```
+
+For non-main tiers, `select` either matches the archetype name directly or picks a model that satisfies the requirements you pass in.
+
+### `recommend` — pick a model from requirements
+
+Returns a recommended model based on a free-form task description and a requirements dict.
+
+```bash
+faerie route --operation recommend \
+  --task-description "Summarize a 400-page audit log into key findings" \
+  --requirements '{"context_needed": 250000, "speed_priority": "low", "reasoning_level": "high"}'
+```
+
+Supported requirement keys:
+
+- `context_needed` — minimum context window in tokens.
+- `speed_priority` — `low`, `medium`, or `high`.
+- `reasoning_level` — `low`, `medium`, or `high`.
+
+## Response shape
+
+Every operation returns the same observation shape so you can pipe results into a spawn:
+
+```json
+{
+  "status": "success",
+  "operation": "select",
+  "selected_model": "NAVIGATOR",
+  "model_url": "qwen/qwen3-next-80b-a3b-instruct:free",
+  "tier": "main",
+  "reasoning": "Selected NAVIGATOR from main tier based on archetype NAVIGATOR",
+  "available_models": []
+}
+```
+
+When `operation` is `list`, `available_models` contains a row per model. For `select` and `recommend`, `available_models` is empty and the picked model is in `selected_model` and `model_url`.
+
+## Example: route then spawn
+
+A common pattern is to recommend a model for a one-off mission and then pass it into a spawn.
+
+```bash
+# 1. Get a recommendation for a long-context summarization task
+faerie route --operation recommend \
+  --task-description "Distill quarterly audit logs into a weekly digest" \
+  --requirements '{"context_needed": 500000, "reasoning_level": "medium"}'
+
+# 2. Spawn a SCRIBE team with the recommended model
+/substrate --operation faerie \
+  --spawn-config agents/spawn-configs/weekly-digest.json \
+  --model google/gemini-2.5-pro-exp-03-25:free \
+  --target-count 2
+```
+
+## When to skip routing
+
+If you do not pass a `--model` override, `spawn` uses the archetype's main-tier default. That is the right choice for most missions. Reach for `route` only when:
+
+- The task exceeds the main-tier context window.
+- You need stronger reasoning than the archetype default provides.
+- You want to A/B a candidate model against the current default.

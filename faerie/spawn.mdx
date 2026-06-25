@@ -1,0 +1,102 @@
+---
+title: "Spawn parallel agent teams with the f(0) architecture"
+description: "Spawn parallel faerie agents using sigmoid pressure, archetype rosters, bearings, and live bundle composition under the f(0) architecture."
+icon: "users"
+---
+
+## Overview
+
+The `spawn` capability creates parallel agent teams to work on independent tasks. It uses the **f(0) architecture**: Python scripts handle pressure calculation, roster selection, and bundle composition. As a result, the queen agent only spends about 100 tokens per spawn decision regardless of team size.
+
+Use `spawn` when:
+
+- You have two or more independent tasks that can run in parallel.
+- You need a team sized to current pressure rather than a fixed count.
+- You want each agent to start with full context (HONEY, recent manifests, mission graph) without paying for it from the queen's budget.
+
+## How spawning works
+
+1. You (or `/substrate --operation faerie`) trigger a spawn.
+2. `spawn.py` computes sigmoid pressure from context remaining and unclaimed work, then determines how many agents to launch.
+3. It selects a roster of archetypes based on the mission **bearing** (N, S, E, W, or multi).
+4. It composes a bundle per agent — system prompt, live context, and forensic manifest — and writes it to `forensics/bundles/`.
+5. The queen reads a short JSON summary and dispatches each agent through `TaskTool`.
+6. Each agent writes its outputs and a final manifest to its own `forensics/ephemeral/` directory.
+
+## Archetype roster
+
+`spawn` selects models from three rosters. The main roster maps archetypes to free OpenRouter models tuned for that archetype's role.
+
+| Archetype | Role | Default model |
+| --- | --- | --- |
+| `QUEEN` | Strategic oversight and mission coordination | `qwen/qwen3-235b-a22b-instruct:free` |
+| `NAVIGATOR` | Explore unknowns and discover paths | `qwen/qwen3-next-80b-a3b-instruct:free` |
+| `SAGE` | Analysis and synthesis | `qwen/qwen3-next-80b-a3b-instruct:free` |
+| `TINKER` | Experiment and prototype | `qwen/qwen3-coder-30b-a3b-instruct:free` |
+| `BUILDER` | Construct and deliver | `qwen/qwen3-coder-30b-a3b-instruct:free` |
+| `SCRIBE` | Document and report | `mistralai/mistral-7b-instruct:free` |
+| `HERALD` | Announce and coordinate | `mistralai/mistral-7b-instruct:free` |
+
+Legacy archetypes `MAKER`, `BRIDGE`, and `DEEP-DIVER` remain available for backward compatibility.
+
+For long-document and frontier tasks, see [Model routing](/faerie/route) for the large-context and frontier rosters.
+
+## Bearings
+
+A **bearing** tells `spawn` what kind of work the team should focus on. The bearing selects which archetypes appear in the roster.
+
+| Bearing | Meaning | Archetypes |
+| --- | --- | --- |
+| `N` | **Unblock.** Navigate blockers, discover prerequisites, deep-dive. | NAVIGATOR, SAGE, TINKER |
+| `S` | **Ship.** Build, bridge, deliver artifacts. | BUILDER, HERALD, NAVIGATOR |
+| `E` | **Parallel.** Cross-domain synthesis, expand surface. | SCRIBE, BRIDGE, NAVIGATOR |
+| `W` | **Baseline.** Research, validate assumptions, consolidate. | SAGE, NAVIGATOR |
+| `multi` | All directions. | NAVIGATOR, SAGE, BUILDER, SCRIBE |
+
+## CLI
+
+You can call `spawn.py` directly or through `/substrate --operation spawn`.
+
+### Spawn a full team
+
+```bash
+python3 .openhands/skills/faerie/spawn.py team \
+  --mission "investigate auth flow" \
+  --bearing N \
+  --context-remaining 150000 \
+  --unclaimed-work 4
+```
+
+### Check pressure without spawning
+
+Use this to see how many agents `spawn` would launch given current state.
+
+```bash
+python3 .openhands/skills/faerie/spawn.py pressure \
+  --context-remaining 150000 \
+  --unclaimed-work 4
+```
+
+### Spawn through `/substrate`
+
+```bash
+/substrate --operation spawn \
+  --config config/spawn-policy.yaml \
+  --mission "auth-schema-migration" \
+  --archetype NAVIGATOR \
+  --count 2 \
+  --bundle-id F0-2026W19
+```
+
+## What gets written
+
+Each spawn produces:
+
+- `forensics/manifests/YYYY-MM-DD/{task_id}.json` — the team manifest.
+- `forensics/bundles/YYYY-MM-DD/{task_id}.json` — the per-agent bundles.
+- `forensics/ephemeral/YYYY-MM-DD/{task_id}/` — working directories for each agent.
+- An entry in `forensics/coc.jsonl` — the chain-of-custody log.
+
+## Cost model
+
+Main's cost is constant at roughly 100 tokens per spawn decision because the queen never reads bundle contents — it only reads the summary. Team size is bounded by your `--cost-budget`, not by the queen's context budget.
